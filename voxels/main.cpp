@@ -21,6 +21,10 @@
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+constexpr float MAX_FOV = 145.0f;
+constexpr float MIN_FOV = 1.0f;
+constexpr float ZOOM_RATE = 5.0f;
+float fov = 45.0f;
 
 VkInstance instance;
 VkDebugUtilsMessengerEXT debugMessenger;
@@ -279,6 +283,10 @@ void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
     framebufferResized = true;
 }
 
+void scrollCallback(GLFWwindow* window, double xOffset, double yOffset) {
+    fov = std::clamp(static_cast<float>(fov - yOffset * ZOOM_RATE), MIN_FOV, MAX_FOV);
+}
+
 void initWindow() {
     glfwInit();
 
@@ -286,6 +294,7 @@ void initWindow() {
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     window = glfwCreateWindow(WIDTH, HEIGHT, "Voxels", nullptr, nullptr);
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+    glfwSetScrollCallback(window, scrollCallback);
 }
 
 struct QueueFamilyIndices {
@@ -1147,7 +1156,7 @@ void updateUniformBuffer(uint32_t currentImage) {
     UniformBufferObject ubo{};
     ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.view = glm::lookAt(glm::vec3(0.0f, 10.0f, 50.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 500.0f);
+    ubo.proj = glm::perspective(glm::radians(fov), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 500.0f);
     ubo.proj[1][1] *= -1;
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
