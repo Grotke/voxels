@@ -25,8 +25,13 @@ constexpr float MAX_FOV = 145.0f;
 constexpr float MIN_FOV = 1.0f;
 constexpr float ZOOM_RATE = 5.0f;
 constexpr float CAMERA_ROTATE_RATE = 5.0f;
+constexpr float CAMERA_TRANSLATE_RATE = 0.05f;
 float fov = 45.0f;
 float cameraRotation = 0.0f;
+bool panActive = false;
+double prevCursorX = 0.0f;
+double prevCursorY = 0.0f;
+glm::vec2 scenePosition;
 
 VkInstance instance;
 VkDebugUtilsMessengerEXT debugMessenger;
@@ -300,6 +305,21 @@ void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int
     }
 }
 
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        panActive = action == GLFW_PRESS || action == GLFW_REPEAT;
+    }
+}
+
+void cursorPositionCallback(GLFWwindow* window, double xPos, double yPos) {
+    if (panActive) {
+        // Flip y since this is in screen coordinates
+        scenePosition += glm::vec2{ (xPos - prevCursorX) * CAMERA_TRANSLATE_RATE, -(yPos - prevCursorY) * CAMERA_TRANSLATE_RATE };
+    }
+    prevCursorX = xPos;
+    prevCursorY = yPos;
+}
+
 void initWindow() {
     glfwInit();
 
@@ -309,6 +329,8 @@ void initWindow() {
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     glfwSetScrollCallback(window, scrollCallback);
     glfwSetKeyCallback(window, keyboardCallback);
+    glfwSetMouseButtonCallback(window, mouseButtonCallback);
+    glfwSetCursorPosCallback(window, cursorPositionCallback);
 }
 
 struct QueueFamilyIndices {
@@ -1164,12 +1186,13 @@ void cleanup() {
 }
 
 void updateUniformBuffer(uint32_t currentImage) {
-    glm::mat4 camera = glm::rotate(glm::mat4(1.0f), glm::radians(cameraRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 camera = glm::translate(glm::mat4(1.0f), glm::vec3(scenePosition, 0.0f));
+    camera = glm::rotate(camera, glm::radians(cameraRotation), glm::vec3(0.0f, 1.0f, 0.0f));
     UniformBufferObject ubo{};
     ubo.model = glm::rotate(camera, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.view = glm::lookAt(glm::vec3(0.0f, 10.0f, 50.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.proj = glm::perspective(glm::radians(fov), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 500.0f);
-    ubo.proj[1][1] *= -1;
+    ubo.proj[1][1] *= -1; // Adjust for Vulkan flipped y
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
 
