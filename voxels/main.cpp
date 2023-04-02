@@ -24,7 +24,9 @@ constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 constexpr float MAX_FOV = 145.0f;
 constexpr float MIN_FOV = 1.0f;
 constexpr float ZOOM_RATE = 5.0f;
+constexpr float CAMERA_ROTATE_RATE = 5.0f;
 float fov = 45.0f;
+float cameraRotation = 0.0f;
 
 VkInstance instance;
 VkDebugUtilsMessengerEXT debugMessenger;
@@ -287,6 +289,17 @@ void scrollCallback(GLFWwindow* window, double xOffset, double yOffset) {
     fov = std::clamp(static_cast<float>(fov - yOffset * ZOOM_RATE), MIN_FOV, MAX_FOV);
 }
 
+void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        if (key == GLFW_KEY_E) {
+            cameraRotation -= CAMERA_ROTATE_RATE;
+        }
+        else if (key == GLFW_KEY_Q) {
+            cameraRotation += CAMERA_ROTATE_RATE;
+        }
+    }
+}
+
 void initWindow() {
     glfwInit();
 
@@ -295,6 +308,7 @@ void initWindow() {
     window = glfwCreateWindow(WIDTH, HEIGHT, "Voxels", nullptr, nullptr);
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     glfwSetScrollCallback(window, scrollCallback);
+    glfwSetKeyCallback(window, keyboardCallback);
 }
 
 struct QueueFamilyIndices {
@@ -1150,11 +1164,9 @@ void cleanup() {
 }
 
 void updateUniformBuffer(uint32_t currentImage) {
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
+    glm::mat4 camera = glm::rotate(glm::mat4(1.0f), glm::radians(cameraRotation), glm::vec3(0.0f, 1.0f, 0.0f));
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.model = glm::rotate(camera, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.view = glm::lookAt(glm::vec3(0.0f, 10.0f, 50.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.proj = glm::perspective(glm::radians(fov), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 500.0f);
     ubo.proj[1][1] *= -1;
