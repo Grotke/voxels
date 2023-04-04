@@ -26,6 +26,7 @@ constexpr float MIN_FOV = 1.0f;
 constexpr float ZOOM_RATE = 5.0f;
 constexpr float CAMERA_ROTATE_RATE = 5.0f;
 constexpr float CAMERA_TRANSLATE_RATE = 0.05f;
+constexpr glm::vec3 grey{0.3f, 0.3f, 0.3f};
 float fov = 45.0f;
 float cameraRotation = 0.0f;
 bool panActive = false;
@@ -93,15 +94,14 @@ struct Vertex {
 };
 
 const std::vector<Vertex> vertices = {
-    {{-1.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-    {{1.0f, -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-    {{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-    {{-1.0f, 1.0f,0.0f}, {1.0f, 1.0f, 1.0f}},
-    {{1.0f, -1.0f, -2.0f}, {0.0f, 1.0f, 0.0f}},
-    {{1.0f, 1.0f, -2.0f}, {0.0f, 0.0f, 1.0f}},
-    {{-1.0f, -1.0f, -2.0f}, {1.0f, 0.0f, 0.0f}},
-    {{-1.0f, 1.0f,-2.0f}, {1.0f, 1.0f, 1.0f}},
-
+    {{0.0f, 0.0f, 0.0f}, grey},
+    {{1.0f, 0.0f, 0.0f}, grey},
+    {{1.0f, 1.0f, 0.0f}, grey},
+    {{0.0f, 1.0f,0.0f}, grey},
+    {{1.0f, 0.0f, -1.0f}, grey},
+    {{1.0f, 1.0f, -1.0f}, grey},
+    {{0.0f, 0.0f, -1.0f}, grey},
+    {{0.0f, 1.0f,-1.0f}, grey},
 };
 
 const std::vector<uint16_t> indices = {
