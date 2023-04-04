@@ -25,7 +25,7 @@ constexpr float MAX_FOV = 145.0f;
 constexpr float MIN_FOV = 1.0f;
 constexpr float ZOOM_RATE = 5.0f;
 constexpr float CAMERA_ROTATE_RATE = 5.0f;
-constexpr float CAMERA_TRANSLATE_RATE = 0.05f;
+constexpr float CAMERA_PAN_RATE = 0.02f;
 constexpr glm::vec3 grey{0.3f, 0.3f, 0.3f};
 float fov = 45.0f;
 float cameraRotation = 0.0f;
@@ -314,7 +314,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 void cursorPositionCallback(GLFWwindow* window, double xPos, double yPos) {
     if (panActive) {
         // Flip y since this is in screen coordinates
-        scenePosition += glm::vec2{ (xPos - prevCursorX) * CAMERA_TRANSLATE_RATE, -(yPos - prevCursorY) * CAMERA_TRANSLATE_RATE };
+        scenePosition += glm::vec2{ (xPos - prevCursorX) * CAMERA_PAN_RATE, -(yPos - prevCursorY) * CAMERA_PAN_RATE };
     }
     prevCursorX = xPos;
     prevCursorY = yPos;
