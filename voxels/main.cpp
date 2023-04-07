@@ -21,12 +21,15 @@
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-constexpr float MAX_FOV = 145.0f;
+constexpr float MAX_FOV = 180.0f;
 constexpr float MIN_FOV = 1.0f;
 constexpr float ZOOM_RATE = 5.0f;
 constexpr float CAMERA_ROTATE_RATE = 5.0f;
 constexpr float CAMERA_PAN_RATE = 0.02f;
 constexpr glm::vec3 grey{0.3f, 0.3f, 0.3f};
+constexpr int SCENE_LENGTH = 100;
+constexpr int SCENE_WIDTH = 100;
+constexpr int GROUND_LINE = 50;
 float fov = 45.0f;
 float cameraRotation = 0.0f;
 bool panActive = false;
@@ -81,9 +84,14 @@ std::vector<VkDescriptorSet> descriptorSets;
 auto startTime = std::chrono::high_resolution_clock::now();
 
 struct UniformBufferObject {
+    glm::mat4 camera;
+    glm::mat4 scale;
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
+    glm::mat4 baseTerrainTransform;
+    int length;
+    int width;
 };
 
 const std::vector<const char*> validationLayers{ "VK_LAYER_KHRONOS_validation" };
@@ -112,6 +120,9 @@ const std::vector<Vertex> vertices = {
     {{0.0f, 0.0f, -1.0f}, grey},
     {{0.0f, 1.0f,-1.0f}, grey},
 };
+
+constexpr float CUBE_SIZE = 0.5f;
+const int NUM_CUBES_NEEDED = std::floor(GROUND_LINE * SCENE_LENGTH * SCENE_WIDTH) / CUBE_SIZE;
 
 const std::vector<uint16_t> indices = {
     0,1,2,2,3,0,1,4,2,2,4,5,5,4,6,6,7,5,7,6,3,6,0,3,5,3,2,3,5,7,1,0,4,6,4,0
@@ -1062,7 +1073,7 @@ void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     scissor.extent = swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 50000, 0, 0, 0);
     vkCmdEndRenderPass(commandBuffer);
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
@@ -1359,10 +1370,15 @@ void updateUniformBuffer(uint32_t currentImage) {
     glm::mat4 camera = glm::translate(glm::mat4(1.0f), glm::vec3(scenePosition, 0.0f));
     camera = glm::rotate(camera, glm::radians(cameraRotation), glm::vec3(0.0f, 1.0f, 0.0f));
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(camera, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.camera = camera;
+    ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.view = glm::lookAt(glm::vec3(0.0f, 10.0f, 50.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    ubo.proj = glm::perspective(glm::radians(fov), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 500.0f);
+    ubo.proj = glm::perspective(glm::radians(fov), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 100000.0f);
     ubo.proj[1][1] *= -1; // Adjust for Vulkan flipped y
+    ubo.baseTerrainTransform = glm::mat4(1.0f);
+    ubo.scale = glm::scale(glm::mat4(1.0f), glm::vec3(CUBE_SIZE));
+    ubo.length = SCENE_LENGTH;
+    ubo.width = SCENE_WIDTH;
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
 
