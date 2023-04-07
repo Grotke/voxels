@@ -8,6 +8,12 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -16,10 +22,15 @@
 #include <limits>
 #include <optional>
 #include <set>
+#include <unordered_map>
 #include <vector>
 
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
+
+const std::string MODEL_PATH{ "models/cube2.obj" };
+const std::string TEXTURE_PATH{ "textures/viking_room.png" };
+
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 constexpr float MAX_FOV = 180.0f;
 constexpr float MIN_FOV = 1.0f;
@@ -108,25 +119,81 @@ constexpr bool ENABLE_INFO = false;
 struct Vertex {
     glm::vec3 pos;
     glm::vec3 color;
+    glm::vec2 texCoord;
+
+    bool operator==(const Vertex& other) const {
+        return pos == other.pos && color == other.color && texCoord == other.texCoord;
+    }
+
 };
 
-const std::vector<Vertex> vertices = {
-    {{0.0f, 0.0f, 0.0f}, grey},
-    {{1.0f, 0.0f, 0.0f}, grey},
-    {{1.0f, 1.0f, 0.0f}, grey},
-    {{0.0f, 1.0f,0.0f}, grey},
-    {{1.0f, 0.0f, -1.0f}, grey},
-    {{1.0f, 1.0f, -1.0f}, grey},
-    {{0.0f, 0.0f, -1.0f}, grey},
-    {{0.0f, 1.0f,-1.0f}, grey},
-};
+namespace std {
+    template<> struct hash<Vertex> {
+        size_t operator()(Vertex const& vertex) const {
+            return ((hash<glm::vec3>()(vertex.pos) ^
+                (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+                (hash<glm::vec2>()(vertex.texCoord) << 1);
+        }
+    };
+}
+
+//const std::vector<Vertex> vertices = {
+//    {{0.0f, 0.0f, 0.0f}, grey},
+//    {{1.0f, 0.0f, 0.0f}, grey},
+//    {{1.0f, 1.0f, 0.0f}, grey},
+//    {{0.0f, 1.0f,0.0f}, grey},
+//    {{1.0f, 0.0f, -1.0f}, grey},
+//    {{1.0f, 1.0f, -1.0f}, grey},
+//    {{0.0f, 0.0f, -1.0f}, grey},
+//    {{0.0f, 1.0f,-1.0f}, grey},
+//};
+//
+//const std::vector<uint16_t> indices = {
+//    0,1,2,2,3,0,1,4,2,2,4,5,5,4,6,6,7,5,7,6,3,6,0,3,5,3,2,3,5,7,1,0,4,6,4,0
+//};
+
 
 constexpr float CUBE_SIZE = 0.5f;
 const int NUM_CUBES_NEEDED = std::floor(GROUND_LINE * SCENE_LENGTH * SCENE_WIDTH) / CUBE_SIZE;
 
-const std::vector<uint16_t> indices = {
-    0,1,2,2,3,0,1,4,2,2,4,5,5,4,6,6,7,5,7,6,3,6,0,3,5,3,2,3,5,7,1,0,4,6,4,0
-};
+std::vector<Vertex> vertices;
+std::vector<uint32_t> indices;
+
+void loadModel() {
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
+        throw std::runtime_error(warn + err);
+    }
+
+    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
+    for (const auto& shape : shapes) {
+        for (const auto& index : shape.mesh.indices) {
+            Vertex vertex{};
+
+            vertex.pos = {
+                attrib.vertices[3*index.vertex_index + 0],
+                attrib.vertices[3*index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 2]
+            };
+            vertex.texCoord = {
+                attrib.texcoords[2 * index.texcoord_index + 0],
+                attrib.texcoords[2*index.texcoord_index + 1]
+            };
+            vertex.color = { 1.0f, 1.0f, 1.0f };
+            if (uniqueVertices.count(vertex) == 0) {
+                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+                vertices.push_back(vertex);
+            }
+
+            indices.push_back(uniqueVertices[vertex]);
+        }
+    }
+}
 
 VkVertexInputBindingDescription getBindingDescription() {
     VkVertexInputBindingDescription bindingDescription{};
@@ -147,6 +214,11 @@ std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
     attributeDescriptions[1].location = 1;
     attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+    //attributeDescriptions[2].binding = 0;
+    //attributeDescriptions[2].location = 2;
+    //attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+    //attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
 
     return attributeDescriptions;
@@ -447,7 +519,6 @@ bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
     std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
     for (const auto& extension : availableExtensions) {
-        //std::cout << extension.extensionName << std::endl;
         std::cout << extension.extensionName << std::endl;
         requiredExtensions.erase(extension.extensionName);
     }
@@ -1058,7 +1129,7 @@ void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -1074,7 +1145,7 @@ void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     scissor.extent = swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 50000, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
     vkCmdEndRenderPass(commandBuffer);
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
@@ -1320,6 +1391,7 @@ void initVulkan(){
     createDepthResources();
     createFramebuffers();
     createCommandPool();
+    loadModel();
     createVertexBuffer();
     createIndexBuffer();
     createUniformBuffers();
