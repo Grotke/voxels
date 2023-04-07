@@ -25,6 +25,9 @@
 #include <unordered_map>
 #include <vector>
 
+#define USE_MODEL
+#define ANTIALIAS
+
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
 
@@ -55,7 +58,6 @@ VkImage depthImage;
 VkDeviceMemory depthImageMemory;
 VkImageView depthImageView;
 
-#define ANTIALIAS
 
 VkInstance instance;
 VkDebugUtilsMessengerEXT debugMessenger;
@@ -137,27 +139,10 @@ namespace std {
     };
 }
 
-//const std::vector<Vertex> vertices = {
-//    {{0.0f, 0.0f, 0.0f}, grey},
-//    {{1.0f, 0.0f, 0.0f}, grey},
-//    {{1.0f, 1.0f, 0.0f}, grey},
-//    {{0.0f, 1.0f,0.0f}, grey},
-//    {{1.0f, 0.0f, -1.0f}, grey},
-//    {{1.0f, 1.0f, -1.0f}, grey},
-//    {{0.0f, 0.0f, -1.0f}, grey},
-//    {{0.0f, 1.0f,-1.0f}, grey},
-//};
-//
-//const std::vector<uint16_t> indices = {
-//    0,1,2,2,3,0,1,4,2,2,4,5,5,4,6,6,7,5,7,6,3,6,0,3,5,3,2,3,5,7,1,0,4,6,4,0
-//};
-
-
-constexpr float CUBE_SIZE = 0.5f;
-const int NUM_CUBES_NEEDED = std::floor(GROUND_LINE * SCENE_LENGTH * SCENE_WIDTH) / CUBE_SIZE;
-
+#ifdef USE_MODEL
 std::vector<Vertex> vertices;
 std::vector<uint32_t> indices;
+
 
 void loadModel() {
     tinyobj::attrib_t attrib;
@@ -176,13 +161,13 @@ void loadModel() {
             Vertex vertex{};
 
             vertex.pos = {
-                attrib.vertices[3*index.vertex_index + 0],
-                attrib.vertices[3*index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 0],
+                attrib.vertices[3 * index.vertex_index + 1],
                 attrib.vertices[3 * index.vertex_index + 2]
             };
             vertex.texCoord = {
                 attrib.texcoords[2 * index.texcoord_index + 0],
-                attrib.texcoords[2*index.texcoord_index + 1]
+                attrib.texcoords[2 * index.texcoord_index + 1]
             };
             vertex.color = { 1.0f, 1.0f, 1.0f };
             if (uniqueVertices.count(vertex) == 0) {
@@ -194,6 +179,30 @@ void loadModel() {
         }
     }
 }
+
+#else
+const std::vector<Vertex> vertices = {
+    {{0.0f, 0.0f, 0.0f}, grey},
+    {{1.0f, 0.0f, 0.0f}, grey},
+    {{1.0f, 1.0f, 0.0f}, grey},
+    {{0.0f, 1.0f,0.0f}, grey},
+    {{1.0f, 0.0f, -1.0f}, grey},
+    {{1.0f, 1.0f, -1.0f}, grey},
+    {{0.0f, 0.0f, -1.0f}, grey},
+    {{0.0f, 1.0f,-1.0f}, grey},
+};
+
+const std::vector<uint32_t> indices = {
+    0,1,2,2,3,0,1,4,2,2,4,5,5,4,6,6,7,5,7,6,3,6,0,3,5,3,2,3,5,7,1,0,4,6,4,0
+};
+#endif
+
+constexpr float CUBE_SIZE = 2.0f;
+const int NUM_CUBES_NEEDED = std::floor(GROUND_LINE * SCENE_LENGTH * SCENE_WIDTH) / CUBE_SIZE;
+
+
+
+
 
 VkVertexInputBindingDescription getBindingDescription() {
     VkVertexInputBindingDescription bindingDescription{};
@@ -1145,7 +1154,7 @@ void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     scissor.extent = swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1000, 0, 0, 0);
     vkCmdEndRenderPass(commandBuffer);
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
@@ -1391,7 +1400,9 @@ void initVulkan(){
     createDepthResources();
     createFramebuffers();
     createCommandPool();
+#ifdef USE_MODEL
     loadModel();
+#endif
     createVertexBuffer();
     createIndexBuffer();
     createUniformBuffers();
@@ -1449,7 +1460,7 @@ void updateUniformBuffer(uint32_t currentImage) {
     ubo.proj = glm::perspective(glm::radians(fov), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 100000.0f);
     ubo.proj[1][1] *= -1; // Adjust for Vulkan flipped y
     ubo.baseTerrainTransform = glm::mat4(1.0f);
-    ubo.scale = glm::scale(glm::mat4(1.0f), glm::vec3(CUBE_SIZE));
+    ubo.scale = glm::mat4(1.0f);//glm::scale(glm::mat4(1.0f), glm::vec3(CUBE_SIZE));
     ubo.length = SCENE_LENGTH;
     ubo.width = SCENE_WIDTH;
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
