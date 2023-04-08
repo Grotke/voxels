@@ -122,9 +122,10 @@ struct Vertex {
     glm::vec3 pos;
     glm::vec3 color;
     glm::vec2 texCoord;
+    glm::vec3 normal;
 
     bool operator==(const Vertex& other) const {
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
+        return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal;
     }
 
 };
@@ -168,6 +169,11 @@ void loadModel() {
             vertex.texCoord = {
                 attrib.texcoords[2 * index.texcoord_index + 0],
                 attrib.texcoords[2 * index.texcoord_index + 1]
+            };
+            vertex.normal = {
+                attrib.normals[3 * index.normal_index + 0],
+                attrib.normals[3 * index.normal_index + 1],
+                attrib.normals[3 * index.normal_index + 2]
             };
             vertex.color = { 1.0f, 1.0f, 1.0f };
             if (uniqueVertices.count(vertex) == 0) {
